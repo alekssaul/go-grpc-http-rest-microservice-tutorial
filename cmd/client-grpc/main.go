@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"log"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
-	"github.com/amsokol/go-grpc-http-rest-microservice-tutorial/pkg/api/v1"
+	v1 "github.com/alekssaul/go-grpc-http-rest-microservice-tutorial/pkg/api/v1"
 )
 
 const (
@@ -20,10 +23,39 @@ const (
 func main() {
 	// get configuration
 	address := flag.String("server", "", "gRPC server in format host:port")
+	title := flag.String("title", "", "gRPC server in format host:port")
+	description := flag.String("description", "", "gRPC server in format host:port")
+	insecure := flag.Bool("insecure", false, "Do not connect over TLS")
 	flag.Parse()
 
+	if *title == "" {
+		log.Fatalln("Please use --title flag ")
+	}
+
+	if *description == "" {
+		log.Fatalln("Please use --description flag ")
+	}
+
+	var opts []grpc.DialOption
+	if *address != "" {
+		opts = append(opts, grpc.WithAuthority(*address))
+	}
+
+	if *insecure {
+		opts = append(opts, grpc.WithInsecure())
+	} else {
+		systemRoots, err := x509.SystemCertPool()
+		if err != nil {
+			log.Fatalf("Certs error: %v", err)
+		}
+		cred := credentials.NewTLS(&tls.Config{
+			RootCAs: systemRoots,
+		})
+		opts = append(opts, grpc.WithTransportCredentials(cred))
+	}
+
 	// Set up a connection to the server.
-	conn, err := grpc.Dial(*address, grpc.WithInsecure())
+	conn, err := grpc.Dial(*address, opts...)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -36,14 +68,13 @@ func main() {
 
 	t := time.Now().In(time.UTC)
 	reminder, _ := ptypes.TimestampProto(t)
-	pfx := t.Format(time.RFC3339Nano)
 
 	// Call Create
 	req1 := v1.CreateRequest{
 		Api: apiVersion,
 		ToDo: &v1.ToDo{
-			Title:       "title (" + pfx + ")",
-			Description: "description (" + pfx + ")",
+			Title:       *title,
+			Description: *description,
 			Reminder:    reminder,
 		},
 	}
@@ -66,40 +97,4 @@ func main() {
 	}
 	log.Printf("Read result: <%+v>\n\n", res2)
 
-	// Update
-	req3 := v1.UpdateRequest{
-		Api: apiVersion,
-		ToDo: &v1.ToDo{
-			Id:          res2.ToDo.Id,
-			Title:       res2.ToDo.Title,
-			Description: res2.ToDo.Description + " + updated",
-			Reminder:    res2.ToDo.Reminder,
-		},
-	}
-	res3, err := c.Update(ctx, &req3)
-	if err != nil {
-		log.Fatalf("Update failed: %v", err)
-	}
-	log.Printf("Update result: <%+v>\n\n", res3)
-
-	// Call ReadAll
-	req4 := v1.ReadAllRequest{
-		Api: apiVersion,
-	}
-	res4, err := c.ReadAll(ctx, &req4)
-	if err != nil {
-		log.Fatalf("ReadAll failed: %v", err)
-	}
-	log.Printf("ReadAll result: <%+v>\n\n", res4)
-
-	// Delete
-	req5 := v1.DeleteRequest{
-		Api: apiVersion,
-		Id:  id,
-	}
-	res5, err := c.Delete(ctx, &req5)
-	if err != nil {
-		log.Fatalf("Delete failed: %v", err)
-	}
-	log.Printf("Delete result: <%+v>\n\n", res5)
 }

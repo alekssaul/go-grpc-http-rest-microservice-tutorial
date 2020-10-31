@@ -3,14 +3,14 @@ package cmd
 import (
 	"context"
 	"database/sql"
-	"flag"
 	"fmt"
+	"os"
 
 	// mysql driver
 	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/amsokol/go-grpc-http-rest-microservice-tutorial/pkg/protocol/grpc"
-	"github.com/amsokol/go-grpc-http-rest-microservice-tutorial/pkg/service/v1"
+	"github.com/alekssaul/go-grpc-http-rest-microservice-tutorial/pkg/protocol/grpc"
+	v1 "github.com/alekssaul/go-grpc-http-rest-microservice-tutorial/pkg/service/v1"
 )
 
 // Config is configuration for Server
@@ -36,15 +36,15 @@ func RunServer() error {
 
 	// get configuration
 	var cfg Config
-	flag.StringVar(&cfg.GRPCPort, "grpc-port", "", "gRPC port to bind")
-	flag.StringVar(&cfg.DatastoreDBHost, "db-host", "", "Database host")
-	flag.StringVar(&cfg.DatastoreDBUser, "db-user", "", "Database user")
-	flag.StringVar(&cfg.DatastoreDBPassword, "db-password", "", "Database password")
-	flag.StringVar(&cfg.DatastoreDBSchema, "db-schema", "", "Database schema")
-	flag.Parse()
+	cfg.GRPCPort = os.Getenv("PORT")
+	cfg.DatastoreDBHost = os.Getenv("MYSQL_HOST")
+	cfg.DatastoreDBUser = os.Getenv("MYSQL_USER")
+	cfg.DatastoreDBPassword = os.Getenv("MYSQL_PASSWORD")
+	cfg.DatastoreDBSchema = os.Getenv("MYSQL_DB")
 
 	if len(cfg.GRPCPort) == 0 {
-		return fmt.Errorf("invalid TCP port for gRPC server: '%s'", cfg.GRPCPort)
+		fmt.Printf("invalid TCP port for gRPC server: '%s'", cfg.GRPCPort)
+		cfg.GRPCPort = "8080"
 	}
 
 	// add MySQL driver specific parameter to parse date/time
